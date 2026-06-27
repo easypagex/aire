@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>EASYPAGEX — Pantalla de Información de Vuelos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Train+One&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#040404;
+    --board-bg:#0c0c0c;
+    --amber:#ffcb05;
+    --amber-dim:#5a4a06;
+    --frame-1:#232323;
+    --frame-2:#161616;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+
+  body{
+    margin:0;
+    height:100dvh;
+    height:100vh;
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(255,203,5,0.06), transparent 60%),
+      var(--bg);
+    display:flex;
+    flex-direction:column;
+    font-family:'Space Mono', monospace;
+    color:var(--amber);
+    overflow:hidden;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+
+  /* ---- Header (kept compact) ---- */
+  .brand{
+    flex:0 0 auto;
+    text-align:center;
+    padding:6px 0 8px;
+  }
+  .brand a{
+    color:var(--amber);
+    text-decoration:none;
+    font-weight:700;
+    letter-spacing:0.45em;
+    font-size:clamp(12px, 3.4vw, 18px);
+    padding-bottom:4px;
+    border-bottom:1px solid var(--amber-dim);
+    transition:opacity 0.2s, border-color 0.2s;
+  }
+  .brand a:hover{ opacity:0.75; border-color:var(--amber); }
+  .brand a:focus-visible{ outline:2px solid var(--amber); outline-offset:6px; }
+  .brand .tag{
+    display:block;
+    margin-top:5px;
+    font-size:clamp(7px, 1.8vw, 10px);
+    letter-spacing:0.25em;
+    color:#6b5a10;
+  }
+
+  /* ---- Frame: fills all remaining space ---- */
+  .frame{
+    flex:1 1 auto;
+    min-height:0;
+    background:linear-gradient(155deg, var(--frame-1), var(--frame-2) 60%, #0a0a0a);
+    border-radius:12px;
+    padding:clamp(6px, 1.6vw, 16px);
+    box-shadow:
+      0 30px 60px -20px rgba(0,0,0,0.8),
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      inset 0 -1px 0 rgba(0,0,0,0.6);
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+
+  .board-label{
+    flex:0 0 auto;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:0 4px 6px;
+    font-size:clamp(8px, 2vw, 11px);
+    letter-spacing:0.18em;
+    color:var(--amber-dim);
+  }
+  .board-label .dot{
+    width:6px; height:6px; border-radius:50%;
+    background:var(--amber);
+    display:inline-block;
+    margin-right:5px;
+    box-shadow:0 0 6px var(--amber);
+    animation:blink 2s steps(2,end) infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0.15; } }
+
+  /* ---- Board: fills the frame entirely ---- */
+  .board{
+    flex:1 1 auto;
+    min-height:0;
+    background:var(--board-bg);
+    border-radius:6px;
+    padding:clamp(3px, 0.8vw, 8px);
+    display:grid;
+    grid-template-columns:repeat(var(--cols), 1fr);
+    grid-template-rows:repeat(var(--rows), 1fr);
+    gap:clamp(2px, 0.6vw, 5px);
+    cursor:pointer;
+    user-select:none;
+    box-shadow:inset 0 0 30px rgba(0,0,0,0.9);
+  }
+  .board:focus-visible{ outline:2px solid var(--amber); outline-offset:4px; }
+
+  .flap-cell{
+    position:relative;
+    width:100%;
+    height:100%;
+    min-height:0;
+    perspective:300px;
+    border-radius:3px;
+    background:#000;
+  }
+  .flap-inner{
+    position:absolute;
+    inset:0;
+    transform-style:preserve-3d;
+    transition:transform 130ms cubic-bezier(.4,0,.2,1);
+    will-change:transform;
+  }
+  .flap-face{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    backface-visibility:hidden;
+    background:linear-gradient(to bottom, #1a1a1a 0%, #0c0c0c 50%, #161616 100%);
+    border-radius:3px;
+    font-family:'Train One', 'Arial Narrow', sans-serif;
+    font-size:clamp(14px, 9vw, 64px);
+    color:var(--amber);
+    text-shadow:0 0 4px rgba(255,203,5,0.3);
+    line-height:1;
+  }
+  .flap-face::after{
+    content:"";
+    position:absolute;
+    left:0; right:0; top:50%;
+    height:1px;
+    background:rgba(0,0,0,0.75);
+    box-shadow:0 1px 0 rgba(255,255,255,0.04);
+  }
+  .flap-back{ transform:rotateX(180deg); }
+
+  @media (prefers-reduced-motion: reduce){
+    .flap-inner{ transition:none; }
+  }
+
+  /* ---- Footer (kept compact) ---- */
+  .hint{
+    flex:0 0 auto;
+    text-align:center;
+    padding-top:8px;
+    font-size:clamp(7px, 1.8vw, 11px);
+    letter-spacing:0.16em;
+    color:#4a3c05;
+  }
+
+  @media (min-width: 720px){
+    body{ align-items:center; }
+    .brand, .frame, .hint{ width:min(92vw, 760px); }
+  }
+
+  @media (max-width:480px){
+    .board-label span:last-child{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="brand">
+    <a href="https://easypagex.github.io/48/" target="_blank" rel="noopener">EASYPAGEX</a>
+    <span class="tag">LANDING PAGES A TODA VELOCIDAD</span>
+  </div>
+
+  <div class="frame">
+    <div class="board-label">
+      <span><span class="dot"></span>FIDS // ANUNCIOS</span>
+      <span id="clock">PUERTA 48</span>
+    </div>
+
+    <div class="board" id="board" role="button" tabindex="0" aria-label="Haz clic para mostrar el siguiente mensaje"></div>
+  </div>
+
+  <div class="hint">TOCA EL TABLERO PARA AVANZAR &middot; SE ACTUALIZA CADA 8 SEGUNDOS</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var QUOTES = [
+    "Tu Landing Page Lista en 24 Horas.",
+    "Landing Pages de Alta Conversión por un Solo Pago de $89.",
+    "Deja de Adivinar y Empieza a Convertir: Landing Pages Profesionales, Hechas Rápido.",
+    "Lanza Tu Marca al Instante con Diseños Personalizados de Alto Impacto.",
+    "Cero Estrés Técnico - Creamos Tu Landing Page Adaptada a Móviles por $89.",
+    "Convierte Clics en Clientes Rápido con Páginas Hechas para Vender.",
+    "Branding Profesional Desde el Primer Día Sin los Altos Costos de Desarrollo.",
+    "Valida Tu MVP Rápido con una Página de Lanzamiento Optimizada para Conversión."
+  ];
+
+  var COLS = 10, ROWS = 12;
+  var SHUFFLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  var board = document.getElementById('board');
+  board.style.setProperty('--cols', COLS);
+  board.style.setProperty('--rows', ROWS);
+
+  /* ---- Build cells once ---- */
+  var cells = []; // {inner, front, back, current}
+  for (var i = 0; i < COLS * ROWS; i++) {
+    var cell = document.createElement('div');
+    cell.className = 'flap-cell';
+    var inner = document.createElement('div');
+    inner.className = 'flap-inner';
+    var front = document.createElement('div');
+    front.className = 'flap-face flap-front';
+    front.textContent = ' ';
+    var back = document.createElement('div');
+    back.className = 'flap-face flap-back';
+    back.textContent = ' ';
+    inner.appendChild(front);
+    inner.appendChild(back);
+    cell.appendChild(inner);
+    board.appendChild(cell);
+    cells.push({ inner: inner, front: front, back: back, current: ' ', busy: false });
+  }
+
+  /* ---- Audio: synthesized mechanical click ---- */
+  var AudioCtx = window.AudioContext || window.webkitAudioContext;
+  var audioCtx = AudioCtx ? new AudioCtx() : null;
+
+  function ensureAudio() {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playClick() {
+    if (!audioCtx) return;
+    var dur = 0.035;
+    var size = Math.max(1, Math.floor(audioCtx.sampleRate * dur));
+    var buffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < size; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / size, 3);
+    }
+    var noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    var filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 900 + Math.random() * 1400;
+    filter.Q.value = 1.8;
+    var gain = audioCtx.createGain();
+    gain.gain.value = 0.35;
+    noise.connect(filter).connect(gain).connect(audioCtx.destination);
+    noise.start();
+  }
+
+  /* ---- Text wrapping into the fixed grid (with forced break for long words) ---- */
+  function wrapText(text, cols) {
+    var words = text.split(' ');
+    var lines = [];
+    var cur = '';
+    for (var i = 0; i < words.length; i++) {
+      var word = words[i];
+      while (word.length > cols) {
+        if (cur) { lines.push(cur); cur = ''; }
+        lines.push(word.slice(0, cols));
+        word = word.slice(cols);
+      }
+      var candidate = cur ? cur + ' ' + word : word;
+      if (candidate.length <= cols) {
+        cur = candidate;
+      } else {
+        if (cur) lines.push(cur);
+        cur = word;
+      }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  function buildGrid(text) {
+    var clean = text
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\u2014|\u2013/g, '-')
+      .toUpperCase();
+    var lines = wrapText(clean, COLS).slice(0, ROWS);
+    var padTop = Math.floor((ROWS - lines.length) / 2);
+    var rows = [];
+    for (var r = 0; r < ROWS; r++) rows.push(' '.repeat(COLS));
+    for (var j = 0; j < lines.length; j++) {
+      var line = lines[j];
+      var padded = line + ' '.repeat(Math.max(0, COLS - line.length));
+      rows[padTop + j] = padded.slice(0, COLS);
+    }
+    return rows.join('').split('');
+  }
+
+  /* ---- Flap animation for a single cell ---- */
+  function flipCellOnce(cellObj, nextChar, done) {
+    cellObj.back.textContent = nextChar;
+    var inner = cellObj.inner;
+
+    function onEnd() {
+      inner.removeEventListener('transitionend', onEnd);
+      inner.style.transition = 'none';
+      inner.style.transform = 'rotateX(0deg)';
+      cellObj.front.textContent = nextChar;
+      cellObj.current = nextChar;
+      void inner.offsetHeight;
+      inner.style.transition = '';
+      if (done) done();
+    }
+
+    inner.addEventListener('transitionend', onEnd, { once: true });
+    inner.style.transform = 'rotateX(-180deg)';
+    playClick();
+  }
+
+  function flipCellTo(cellObj, targetChar, delay) {
+    setTimeout(function () {
+      if (cellObj.current === targetChar) return;
+      var steps = [];
+      var shuffleCount = 1 + Math.floor(Math.random() * 2);
+      for (var s = 0; s < shuffleCount; s++) {
+        steps.push(SHUFFLE_CHARS[Math.floor(Math.random() * SHUFFLE_CHARS.length)]);
+      }
+      steps.push(targetChar);
+
+      cellObj.busy = true;
+      function runStep(idx) {
+        if (idx >= steps.length) { cellObj.busy = false; return; }
+        flipCellOnce(cellObj, steps[idx], function () { runStep(idx + 1); });
+      }
+      runStep(0);
+    }, delay);
+  }
+
+  function showMessage(text) {
+    var target = buildGrid(text);
+    for (var i = 0; i < cells.length; i++) {
+      var cellObj = cells[i];
+      var ch = target[i];
+      if (ch !== cellObj.current) {
+        var delay = Math.random() * 500;
+        flipCellTo(cellObj, ch, delay);
+      }
+    }
+  }
+
+  /* ---- Cycling logic ---- */
+  var idx = -1;
+  var timer = null;
+
+  function next() {
+    idx = (idx + 1) % QUOTES.length;
+    showMessage(QUOTES[idx]);
+  }
+
+  function resetTimer() {
+    if (timer) clearInterval(timer);
+    timer = setInterval(next, 8000);
+  }
+
+  board.addEventListener('click', function () {
+    ensureAudio();
+    next();
+    resetTimer();
+  });
+  board.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      ensureAudio();
+      next();
+      resetTimer();
+    }
+  });
+  document.addEventListener('pointerdown', ensureAudio, { once: true });
+
+  // initial reveal + start auto-cycle
+  setTimeout(function () {
+    next();
+    resetTimer();
+  }, 400);
+
+})();
+</script>
+</body>
+</html>
